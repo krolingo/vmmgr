@@ -163,9 +163,3 @@ QEMU_ARGS="\
 </dict>
 </plist>
 ```
-
-## DETECTED VMs
-```
-  1. -> YourFancyVM
-  2. -> MountEverestBSD
-```
