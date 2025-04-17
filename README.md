@@ -166,6 +166,6 @@ QEMU_ARGS="\
 
 ## DETECTED VMs
 ```
-  1. -> FreeBSD 14.2 Multi-VNET
-  2. -> alpine
+  1. -> YourFancyVM
+  2. -> MountEverestBSD
 ```
