@@ -165,3 +165,27 @@ QEMU_ARGS="\
 ```
 ## TMUX EXAMPLE
 ![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/TMUX_FreeeBSD.png)
+
+##  Terminal Console Issues (tmux or login prompt)
+
+If you're running `vmmgr` in a **`tmux` session** or on a **direct console login**, and your `zsh` prompt appears degraded (missing colors, slow rendering), it's likely due to an incorrect `$TERM` setting.
+
+###  Fix: Set a better `$TERM`
+In your `~/.zshrc`, add this at the top:
+
+```sh
+# Fix degraded console prompt when TERM is vt100 or dumb
+if [[ "$TERM" == "vt100" || "$TERM" == "dumb" ]]; then
+  export TERM="xterm-256color"
+elif [[ -n "$TMUX" && "$TERM" == "screen" ]]; then
+  export TERM="screen-256color"
+fi
+```
+#### And in your ~/.tmux.conf, add:
+`set -g default-terminal "screen-256color"`
+
+#### Restart your tmux session:
+```
+tmux kill-server
+tmux
+```
