@@ -163,3 +163,5 @@ QEMU_ARGS="\
 </dict>
 </plist>
 ```
+## TMUX EXAMPLE
+![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/TMUX_FreeeBSD.png)
