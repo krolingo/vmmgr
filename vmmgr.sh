@@ -24,7 +24,7 @@
 # 15. attach_tmux_only    — Attach to tmux session if running
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-BASE_DIR="/Users/mcapella/VMs"
+BASE_DIR="/Users/$YOUR_USER/VMs"
 DOAS="/usr/local/bin/doas"
 TMUX="/opt/homebrew/bin/tmux"
 
