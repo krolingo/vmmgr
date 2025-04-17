@@ -38,7 +38,7 @@ doas tmux attach -t alpinevm
 vmmgr.sh alpinevm attach
 ```
 
-<img src="/images/vmmgr/screenshot_2025-04-16_at_18.44.37.png" alt="screenshot" width="600">
+<img src="/images/vmmgr/status_vm.png" alt="screenshot" width="600">
 
 ## SUBCOMMAND DETAILS
 
