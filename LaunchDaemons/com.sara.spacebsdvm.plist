@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.sara.spacebsdvm</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>/Users/$USER_HERE/bin/vmmgr.sh</string>
+		<string>spacebsdvm</string>
+		<string>launchd-start</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/spacebsdvm.out</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/spacebsdvm.err</string>
+</dict>
+</plist>
