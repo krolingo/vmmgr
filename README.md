@@ -55,43 +55,6 @@ vmmgr.sh alpinevm attach
 | `status-all` / `all` | Runs `status` on every VM and presents a system-wide overview.                                   |
 | `list`             | Lists all `.utm` VMs and their states (running, stopped, or disabled).                              |
 
-
-
-## QEMU VM CREATION WORKFLOW
-
-Virtual machines are defined and launched via QEMU directly. A typical creation workflow looks like this:
-
-QEMU Command Line First — You manually test and construct a working QEMU command to launch your VM using flags like `-machine`, `-cpu`, `-drive`, `-nographic`, etc.
-
-Export to vm.conf — Once validated, this command is broken down into variables and saved in a vm.conf file under the corresponding .utm bundle:
-
-```
-VM_NAME="alpinevm"
-QEMU="/opt/homebrew/bin/qemu-system-x86_64"
-QEMU_ARGS="-m 512 -smp 2 -hda alpine.qcow2 -nographic -serial mon:unix:/tmp/alpinevm.monitor,server,nowait"
-```
-
-Bundle Layout — Each VM lives in ~/VMs/<vmname>.utm/. Inside this directory:
-
-vm.conf defines how to launch it
-
-The main disk (`*.qcow2`) and support files (UEFI firmware, efivars, etc.) live in Data/
-
-Driver Pool — A separate directory `~/VMs/qemu/` acts as a shared pool of reusable QEMU drivers and firmware:
-
-OVMF UEFI images
-
-VirtIO drivers
-
-Optional kernel/initrd for Linux VMs
-
-Launch Integration — vmmgr.sh reads vm.conf and executes the defined QEMU binary with args inside a controlled tmux+screen session, optionally launched by macOS launchd.
-
-This approach enables precise, minimal QEMU usage while remaining organized and reboot-persistent.
-
-
-
-
 ## VM CREATION USING UTM + QEMU ARG EXPORT
 
 You can create new virtual machines using the UTM app on macOS, then extract and reuse the QEMU arguments to run them directly via `vmmgr.sh`.
