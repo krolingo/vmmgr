@@ -1,6 +1,6 @@
 # VM Manager (`vmmgr.sh`)
 
-![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/vmmgr.sh.png)
+![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/vmmgr2.png)
 
 
 ## OVERVIEW
