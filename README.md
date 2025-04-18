@@ -3,20 +3,20 @@
 ![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/vmmgr2.png)
 
 
-## OVERVIEW
+## Overview
 CLI tool for managing QEMU virtual machines using `.utm` bundles on macOS. Designed to be used with `tmux`, `screen`, `launchd`, and optionally `doas`.
 
-## USAGE
+## Usage
 ```sh
 vmmgr.sh <vmname> <subcommand>
 ```
 
-## OPTIONS
+## Options
 ```
 -h, --help              Show help information.
 ```
 
-## SUBCOMMANDS
+## Subcommands
 | Command         | Description                                             |
 |----------------|---------------------------------------------------------|
 | start          | Start VM using launchd or fallback to manual           |
@@ -30,7 +30,7 @@ vmmgr.sh <vmname> <subcommand>
 | status-all     | Show statuses of all VMs                               |
 | list           | List all detected VMs                                  |
 
-## EXAMPLES
+## Examples
 ```sh
 vmmgr.sh alpinevm start
 vmmgr.sh alpinevm tmuxed
@@ -40,7 +40,7 @@ vmmgr.sh alpinevm attach
 
 <img src="/images/vmmgr/status_vm.png" alt="screenshot" width="600">
 
-## SUBCOMMAND DETAILS
+## Subcommand Details
 
 | Subcommand         | Description                                                                                         |
 |--------------------|-----------------------------------------------------------------------------------------------------|
@@ -55,7 +55,7 @@ vmmgr.sh alpinevm attach
 | `status-all` / `all` | Runs `status` on every VM and presents a system-wide overview.                                   |
 | `list`             | Lists all `.utm` VMs and their states (running, stopped, or disabled).                              |
 
-## VM CREATION USING UTM + QEMU ARG EXPORT
+## Vm Creation Using Utm + Qemu Arg Export
 
 You can create new virtual machines using the UTM app on macOS, then extract and reuse the QEMU arguments to run them directly via `vmmgr.sh`.
 
@@ -106,14 +106,14 @@ vmmgr.sh alpinevm start
 This workflow makes VM portability and headless operation easy without launching UTM at all.
 
 
-## INTERNALS AND WHY THEY WORK
+## Internals and why they work
 - **`tmux`** keeps session state even after QEMU exits; great for debugging.
 - **`screen`** ensures that QEMU attaches to a PTY, giving a terminal interface for systems without framebuffer.
 - **`launchd`** integration allows macOS boot-time auto-start.
 - **`socat`** lets us talk to QEMU monitor socket for controlled shutdowns.
 - **Logs** and **state files** are placed in `/tmp/` to avoid clutter and require no cleanup after reboot.
 
-## EXAMPLE VM CONFIG (`vm.conf`)
+## Example VM Config (`vm.conf`)
 ```sh
 VM_NAME="server2bsd"
 QEMU="/opt/local/bin/qemu-system-x86_64"
@@ -139,7 +139,7 @@ QEMU_ARGS="\
 -monitor unix:/tmp/${VM_NAME}.monitor,server,nowait"
 ```
 
-## EXAMPLE LAUNCHDAEMON .PLIST
+## Example Launchdaemon .plist
 ```XML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -163,7 +163,7 @@ QEMU_ARGS="\
 </dict>
 </plist>
 ```
-## TMUX EXAMPLE
+## tmux example
 ![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/TMUX_FreeeBSD.png)
 
 ##  Terminal Console Issues (tmux or login prompt)
@@ -191,7 +191,7 @@ tmux
 ```
 
 
-## 🧊 Snapshot Support via `vmctl.sh`
+## 🧊 Snapshot support via `vmctl.sh`
 
 `vmmgr.sh` now supports snapshot management by delegating to a companion script, [`vmctl.sh`](https://github.com/your-org/vmctl.sh), which handles offline and live QEMU snapshots for `.utm`-style VM bundles.
 
