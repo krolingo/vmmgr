@@ -220,7 +220,7 @@ fi
 
 ---
 
-### 🛠 Supported Snapshot Subcommands
+### Supported Snapshot Subcommands
 
 These subcommands are defined in `vmctl.sh` and can vary depending on your setup, but typically include:
 
@@ -233,7 +233,7 @@ These subcommands are defined in `vmctl.sh` and can vary depending on your setup
 
 ---
 
-### 📋 Examples
+###  Examples
 
 ```sh
 # List snapshots for a VM
@@ -251,7 +251,7 @@ vmmgr.sh snapshot alpinevm delete-disk "pre-upgrade"
 
 ---
 
-### ✅ Requirements
+### Requirements
 
 - `vmctl.sh` must exist in `../vmctl/vmctl.sh` relative to `vmmgr.sh`
 - `vmctl.sh` should be executable: `chmod +x vmctl.sh`
