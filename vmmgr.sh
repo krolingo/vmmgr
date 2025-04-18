@@ -24,7 +24,7 @@
 # 15. attach_tmux_only    — Attach to tmux session if running
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-BASE_DIR="/Users/$YOUR_USER/VMs"
+BASE_DIR="/Users/mcapella/VMs"
 DOAS="/usr/local/bin/doas"
 TMUX="/opt/homebrew/bin/tmux"
 
@@ -63,11 +63,16 @@ show_help() {
   echo "  status                 Show VM status"
   echo "  list                   List available VMs"
   echo "  status-all, all        Show status of all VMs"
+  echo "  snapshot               Delegate to vmctl.sh (list-disk, save-disk, restore-disk, delete-disk)"
   echo "\nEXAMPLES:"
   echo "  vmmgr.sh alpinevm start"
   echo "  vmmgr.sh alpinevm tmuxed"
   echo "  doas tmux attach -t alpinevm"
   echo "  vmmgr.sh alpinevm attach"
+    echo "\nSNAPSHOTS:"
+  echo "  vmmgr.sh snapshot alpinevm list-disk"
+  echo "  vmmgr.sh snapshot alpinevm save-disk \"pre-upgrade\""
+  echo "  vmmgr.sh snapshot alpinevm restore-disk \"pre-upgrade\""     
   echo "\nAVAILABLE VMs"
   echo "================================"
   i=1
@@ -80,6 +85,15 @@ show_help() {
   echo ""
 
 }
+
+##############################
+# Handle snapshot subcommand early (relative path)
+if [ "$1" = "snapshot" ]; then
+  shift
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  exec "$SCRIPT_DIR/../vmctl/vmctl.sh" "$@"
+fi
+##############################
 
 # Determine action
 if [ "$1" = "list" ]       || \
@@ -452,5 +466,10 @@ case "$action" in
   launchd-start)  launchd_safe_start_vm   ;;
   tmuxed)         start_attach_vm         ;;
   attach)         attach_tmux_only        ;;
-  *) echo "Usage: $0 <vm> {start|stop|restart|status|status-all|tmuxed|attach|list|all}"; exit 1 ;;
+  *)
+    echo "Usage:"
+    echo "  $0 <vmssss> {start|stop|restart|status|status-all|tmuxed|attach|list|all}"
+    echo "  $0 snapshot <vm> {list|create|restore|delete}"
+    exit 1
+    ;;
 esac

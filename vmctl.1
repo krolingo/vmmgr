@@ -1,0 +1,72 @@
+.TH VMCTL.SH 1 "April 2025" "vmctl.sh manual" "User Commands"
+.SH NAME
+vmctl.sh \- snapshot manager for QEMU .utm virtual machines
+.SH SYNOPSIS
+.B vmctl.sh
+<vm-name> <command> [label]
+.SH DESCRIPTION
+.B vmctl.sh
+is a shell utility for managing internal disk snapshots of QEMU virtual machines using
+.B qemu-img.
+It supports multi-disk .utm bundles and allows saving, restoring, listing, and deleting snapshots.
+
+Snapshots are stored internally in each .qcow2 disk and do not require separate files or folders.
+
+.SH COMMANDS
+.TP
+.B status
+Show whether the specified VM is currently running.
+
+.TP
+.B save-disk [label]
+Save an internal snapshot of each .qcow2 disk. The snapshot will be named using a timestamp and optional label.
+
+.TP
+.B list-disk
+List all internal snapshots present in each .qcow2 disk.
+
+.TP
+.B restore-disk <label>
+Revert each .qcow2 disk to the specified internal snapshot.
+
+.TP
+.B delete-disk <label>
+Delete the named internal snapshot from each disk.
+
+.SH EXAMPLES
+.TP
+Check VM status:
+.B
+vmctl.sh spacebsdvm status
+
+.TP
+Save a snapshot:
+.B
+vmctl.sh spacebsdvm save-disk nightly
+
+.TP
+List snapshots:
+.B
+vmctl.sh spacebsdvm list-disk
+
+.TP
+Restore a snapshot:
+.B
+vmctl.sh spacebsdvm restore-disk 2024-04-09T12-00-00-nightly
+
+.TP
+Delete a snapshot:
+.B
+vmctl.sh spacebsdvm delete-disk 2024-04-09T12-00-00-nightly
+
+.SH NOTES
+- Only internal snapshots are supported.
+- Do not snapshot or restore while the VM is running.
+- Snapshots are per-disk and must be restored together.
+
+.SH SEE ALSO
+.BR qemu-img (1),
+.BR qemu (1),
+.BR utm (1)
+.SH AUTHOR
+Sara Burke (Jordan Lily)
