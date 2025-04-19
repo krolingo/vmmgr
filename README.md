@@ -2,8 +2,6 @@
 
 ![vmmgr3.png](images/vmmgr/vmmgr3.png)
 
-## Test
-
 ## Overview
 CLI tool for managing QEMU virtual machines using `.utm` bundles on macOS. Designed to be used with `tmux`, `screen`, `launchd`, and optionally `doas`.
 
