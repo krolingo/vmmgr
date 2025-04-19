@@ -1,4 +1,5 @@
 #!/bin/sh
+# FUCK YOU
 # vmmgr.sh — VM lifecycle manager (start, stop, status, restart)
 # Requires: doas, tmux, screen, qemu
 # sudo launchctl enable system/com.sara.alpinevm
