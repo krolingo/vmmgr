@@ -50,9 +50,10 @@ TIMESTAMP=$(date)
 short_help() {
   echo ""
   echo "USAGE:" 
-  echo "vmmgr.sh <vmname> <subcommand>"
-  echo "vmmgr.sh snapshot <vmname> <snapshot-subcommand> [label]"
-  echo "Try 'vmmgr.sh --help' for more information."
+  echo "  vmmgr.sh <vmname> <subcommand>"
+  echo "  vmmgr.sh snapshot <vmname> <snapshot-subcommand> [label]"
+  echo ""
+  echo "Try 'vmmgr.sh --help' or 'vmmgr.sh man' for more information."
   echo ""
   exit 1
 }
@@ -69,6 +70,7 @@ show_help() {
   echo ""
   echo "OPTIONS:"
   echo "  -h, --help                Show this help information."
+  echo "  man                       View the full manual page (vmmgr.1)"
   echo ""
   echo "SUBCOMMANDS:"
   echo "  start                    Start VM in tmux+screen"
