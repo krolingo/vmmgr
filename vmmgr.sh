@@ -49,7 +49,9 @@ TIMESTAMP=$(date)
 
 short_help() {
   echo ""
-  echo "USAGE: vmmgr.sh <vmname> <subcommand>"
+  echo "USAGE:" 
+  echo "vmmgr.sh <vmname> <subcommand>"
+  echo "vmmgr.sh snapshot <vmname> <snapshot-subcommand> [label]"
   echo "Try 'vmmgr.sh --help' for more information."
   echo ""
   exit 1
