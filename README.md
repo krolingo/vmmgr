@@ -3,7 +3,7 @@
 ![vmmgr3.png](images/vmmgr/vmmgr3.png)
 
 
-## Overview
+## Overview-
 CLI tool for managing QEMU virtual machines using `.utm` bundles on macOS. Designed to be used with `tmux`, `screen`, `launchd`, and optionally `doas`.
 
 ## Usage
@@ -190,7 +190,7 @@ tmux kill-server
 tmux
 ```
 
-## 🧩 Snapshot Support via `vmctl.sh` Integration
+## 📦 Snapshot Support via `vmctl.sh` Integration
 
 `vmmgr.sh` now delegates snapshot operations to a companion script, `vmctl.sh`, located relative to the `vmmgr.sh` path at:
 
