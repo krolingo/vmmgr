@@ -42,16 +42,15 @@ usage() {
   echo "USAGE: vmctl.sh <vm> <subcommand> [options]"
   echo ""
   echo "OPTIONS:"
-  echo "  -h, --help              Show help information."
+  echo "  -h, --help                 Show help information."
+  echo "  man                        Show the manual page."
   echo ""
   echo "SUBCOMMANDS:"
-  echo "  status                  Show the current status of the VM."
-  echo "  save-disk <label>       Create a disk snapshot with the given label."
-  echo "  list-disk               List available disk snapshots."
-  echo "  restore-disk <label>    Restore a disk snapshot by label."
-  echo "  delete-disk <label>     Delete a disk snapshot by label."
-  echo "  man                     Show the manual page."
-  echo "  help                    Show this usage message."
+  echo "  status                     Show the current status of the VM."
+  echo "  save | save-disk           Create a disk snapshot with an optional label."
+  echo "  list | list-disk           List available disk snapshots."
+  echo "  restore | restore-disk     Restore a disk snapshot by label."
+  echo "  delete | delete-disk       Delete a disk snapshot by label."
   echo ""
   echo "AVAILABLE VMs"
   echo "============="
@@ -164,7 +163,7 @@ list_disk_snapshots() {
     fi
 
     echo ""
-    echo "${BLUE}[INFO]${RESET} Disk: $(basename "$img") [ID: $id]"
+    echo "${BLUE}📦${RESET}   Disk: $(basename "$img") [ID: $id]"
     printf "\n"
     printf "%-4s %-45s %-40s\n" "ID" "TAG" "DATE"
     echo "-----------------------------------------------------------------------"
@@ -197,13 +196,16 @@ delete_disk_snapshot() {
 }
 
 case "$COMMAND" in
-  list)         list_snapshots       ;;
-  save)         save_snapshot        ;;
-  restore)      restore_snapshot     ;;
-  delete-disk)  delete_disk_snapshot ;;
-  status)       status               ;;
-  save-disk)    save_disk_snapshot   ;;
-  list-disk)    list_disk_snapshots  ;;
-  restore-disk) restore_disk_snapshot;;
-  *)            usage                ;;
+  list|list-disk)         list_disk_snapshots    ;;
+  save|save-disk)         save_disk_snapshot     ;;
+  restore|restore-disk)   restore_disk_snapshot  ;;
+  delete|delete-disk)     delete_disk_snapshot   ;;
+  status)                 status                 ;;
+  list-qmp|list-snap)     list_snapshots         ;;
+  save-qmp|save-snap)     save_snapshot          ;;
+  restore-qmp|restore-snap) restore_snapshot     ;;
+  delete-qmp|delete-snap) delete_snapshot        ;;
+  man)                    man "$(dirname "$0")/vmctl.1"; exit 0 ;;
+  help|-h|--help)         usage                  ;;
+  *)                      usage                  ;;
 esac

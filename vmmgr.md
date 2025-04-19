@@ -1,22 +1,22 @@
-# VM Manager (`vmmgr.sh`)
+# VM Manager (`vmmgr.sh`) Documentation
 
-![vmmgr3.png](images/vmmgr/vmmgr3.png)
+![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/screenshot_2025-04-16_at_18.52.57.png)
 
 
-## Overview
+## OVERVIEW
 CLI tool for managing QEMU virtual machines using `.utm` bundles on macOS. Designed to be used with `tmux`, `screen`, `launchd`, and optionally `doas`.
 
-## Usage
+## USAGE
 ```sh
 vmmgr.sh <vmname> <subcommand>
 ```
 
-## Options
+## OPTIONS
 ```
 -h, --help              Show help information.
 ```
 
-## Subcommands
+## SUBCOMMANDS
 | Command         | Description                                             |
 |----------------|---------------------------------------------------------|
 | start          | Start VM using launchd or fallback to manual           |
@@ -30,7 +30,7 @@ vmmgr.sh <vmname> <subcommand>
 | status-all     | Show statuses of all VMs                               |
 | list           | List all detected VMs                                  |
 
-## Examples
+## EXAMPLES
 ```sh
 vmmgr.sh alpinevm start
 vmmgr.sh alpinevm tmuxed
@@ -38,9 +38,12 @@ doas tmux attach -t alpinevm
 vmmgr.sh alpinevm attach
 ```
 
-<img src="/images/vmmgr/status_vm.png" alt="screenshot" width="600">
+<img src="/images/vmmgr/screenshot_2025-04-16_at_18.44.37.png" alt="screenshot" width="600">
 
-## Subcommand Details
+![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/screenshot_2025-04-16_at_18.52.57.png)
+![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/screenshot_2025-04-16_at_18.44.37.png)
+
+## SUBCOMMAND DETAILS
 
 | Subcommand         | Description                                                                                         |
 |--------------------|-----------------------------------------------------------------------------------------------------|
@@ -55,7 +58,44 @@ vmmgr.sh alpinevm attach
 | `status-all` / `all` | Runs `status` on every VM and presents a system-wide overview.                                   |
 | `list`             | Lists all `.utm` VMs and their states (running, stopped, or disabled).                              |
 
-## Vm Creation Using Utm + Qemu Arg Export
+
+
+## QEMU VM CREATION WORKFLOW
+
+Virtual machines are defined and launched via QEMU directly. A typical creation workflow looks like this:
+
+QEMU Command Line First — You manually test and construct a working QEMU command to launch your VM using flags like `-machine`, `-cpu`, `-drive`, `-nographic`, etc.
+
+Export to vm.conf — Once validated, this command is broken down into variables and saved in a vm.conf file under the corresponding .utm bundle:
+
+```
+VM_NAME="alpinevm"
+QEMU="/opt/homebrew/bin/qemu-system-x86_64"
+QEMU_ARGS="-m 512 -smp 2 -hda alpine.qcow2 -nographic -serial mon:unix:/tmp/alpinevm.monitor,server,nowait"
+```
+
+Bundle Layout — Each VM lives in ~/VMs/<vmname>.utm/. Inside this directory:
+
+vm.conf defines how to launch it
+
+The main disk (`*.qcow2`) and support files (UEFI firmware, efivars, etc.) live in Data/
+
+Driver Pool — A separate directory `~/VMs/qemu/` acts as a shared pool of reusable QEMU drivers and firmware:
+
+OVMF UEFI images
+
+VirtIO drivers
+
+Optional kernel/initrd for Linux VMs
+
+Launch Integration — vmmgr.sh reads vm.conf and executes the defined QEMU binary with args inside a controlled tmux+screen session, optionally launched by macOS launchd.
+
+This approach enables precise, minimal QEMU usage while remaining organized and reboot-persistent.
+
+
+
+
+## VM CREATION USING UTM + QEMU ARG EXPORT
 
 You can create new virtual machines using the UTM app on macOS, then extract and reuse the QEMU arguments to run them directly via `vmmgr.sh`.
 
@@ -106,14 +146,14 @@ vmmgr.sh alpinevm start
 This workflow makes VM portability and headless operation easy without launching UTM at all.
 
 
-## Internals and why they work
+## INTERNALS AND WHY THEY WORK
 - **`tmux`** keeps session state even after QEMU exits; great for debugging.
 - **`screen`** ensures that QEMU attaches to a PTY, giving a terminal interface for systems without framebuffer.
 - **`launchd`** integration allows macOS boot-time auto-start.
 - **`socat`** lets us talk to QEMU monitor socket for controlled shutdowns.
 - **Logs** and **state files** are placed in `/tmp/` to avoid clutter and require no cleanup after reboot.
 
-## Example VM Config (`vm.conf`)
+## EXAMPLE VM CONFIG (`vm.conf`)
 ```sh
 VM_NAME="server2bsd"
 QEMU="/opt/local/bin/qemu-system-x86_64"
@@ -139,7 +179,7 @@ QEMU_ARGS="\
 -monitor unix:/tmp/${VM_NAME}.monitor,server,nowait"
 ```
 
-## Example Launchdaemon .plist
+## EXAMPLE LAUNCHDAEMON .PLIST
 ```XML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -163,99 +203,9 @@ QEMU_ARGS="\
 </dict>
 </plist>
 ```
-## tmux example
-![screenshot_2025-04-16_at_18.52.57.png](/images/vmmgr/TMUX_FreeeBSD.png)
 
-##  Terminal Console Issues (tmux or login prompt)
-
-If you're running `vmmgr` in a **`tmux` session** or on a **direct console login**, and your `zsh` prompt appears degraded (missing colors, slow rendering), it's likely due to an incorrect `$TERM` setting.
-
-###  Fix: Set a better `$TERM`
-In your `~/.zshrc`, add this at the top:
-
-```sh
-# Fix degraded console prompt when TERM is vt100 or dumb
-if [[ "$TERM" == "vt100" || "$TERM" == "dumb" ]]; then
-  export TERM="xterm-256color"
-elif [[ -n "$TMUX" && "$TERM" == "screen" ]]; then
-  export TERM="screen-256color"
-fi
+## DETECTED VMs
 ```
-#### And in your ~/.tmux.conf, add:
-`set -g default-terminal "screen-256color"`
-
-#### Restart your tmux session:
+  1. -> FreeBSD 14.2 Multi-VNET
+  2. -> alpine
 ```
-tmux kill-server
-tmux
-```
-
-## 🧩 Snapshot Support via `vmctl.sh` Integration
-
-`vmmgr.sh` now delegates snapshot operations to a companion script, `vmctl.sh`, located relative to the `vmmgr.sh` path at:
-
-```sh
-../vmctl/vmctl.sh
-```
-
-This lets you manage snapshots directly through the same interface, using subcommands like:
-
-```
-vmmgr.sh snapshot <vmname> <subcommand> [args...]
-```
-
----
-
-###  How it works
-
-Inside `vmmgr.sh`, this block forwards `snapshot` commands:
-
-```sh
-# Handle snapshot subcommand early (relative path)
-if [ "$1" = "snapshot" ]; then
-  shift
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  exec "$SCRIPT_DIR/../vmctl/vmctl.sh" "$@"
-fi
-```
-
-The `shift` removes `snapshot`, so the rest of the args are passed to `vmctl.sh`.
-
----
-
-###  Snapshot Subcommands
-
-| Command          | Description                                  |
-|------------------|----------------------------------------------|
-| `list`      | List all snapshots for a VM’s qcow2 disk     |
-| `save`      | Create a new snapshot with a given label     |
-| `restore`   | Restore a snapshot by label or ID            |
-| `delete`    | Delete a snapshot by label or ID             |
-
-You can alias these in your shell for convenience if desired.
-
----
-
-### Examples
-
-```sh
-# List all disk snapshots
-vmmgr.sh snapshot alpinevm list
-
-# Save a disk snapshot before updating
-vmmgr.sh snapshot alpinevm save "before-upgrade"
-
-# Restore snapshot after failure
-vmmgr.sh snapshot alpinevm restore "before-upgrade"
-
-# Delete an unused snapshot
-vmmgr.sh snapshot alpinevm delete "old-test-snap"
-```
-
----
-
-###  Requirements
-
-- `vmctl.sh` must exist and be executable at `../vmctl/vmctl.sh`
-- It must support subcommands like `list-disk`, `save-disk`, etc.
-- Required tools: `qemu-img`, `jq`, `doas`, `socat`

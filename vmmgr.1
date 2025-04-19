@@ -1,0 +1,109 @@
+
+.TH VMMGR 1 "April 2025" "vmmgr.sh 1.0" "VM Lifecycle Manager"
+
+.SH NAME
+vmmgr \- Manage QEMU virtual machines using .utm bundles on macOS
+
+.SH SYNOPSIS
+.B vmmgr
+[\fI<vmname>\fR]
+[\fI<subcommand>\fR]
+
+.SH DESCRIPTION
+.B vmmgr.sh
+is a shell-based tool for managing QEMU VMs bundled in .utm format. It integrates with
+.B tmux
+and optionally
+.B launchd
+to allow flexible VM startup, shutdown, status, snapshotting, and more.
+
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Display help and usage.
+
+.SH SUBCOMMANDS
+
+.TP
+.B start
+Start the VM using launchd or fallback to tmux+screen.
+
+.TP
+.B start-all
+Start all detected VMs.
+
+.TP
+.B tmuxed
+Start a VM and attach to its tmux session.
+
+.TP
+.B attach
+Attach to an existing tmux session for the VM.
+
+.TP
+.B stop
+Gracefully power down the VM.
+
+.TP
+.B stop-all
+Stop all running VMs.
+
+.TP
+.B restart
+Restart the VM (stop + start).
+
+.TP
+.B status
+Show VM status.
+
+.TP
+.B all, status-all
+Show status of all available VMs.
+
+.TP
+.B list
+List all valid VMs found in the base directory.
+
+.TP
+.B snapshot
+Invoke vmctl.sh with arguments to manage snapshots:
+.B list,
+.B save,
+.B restore,
+.B delete
+
+.SH EXAMPLES
+.nf
+vmmgr alpinevm start
+vmmgr alpinevm tmuxed
+vmmgr alpinevm attach
+vmmgr snapshot alpinevm save-disk "before-upgrade"
+.fi
+
+.SH FILES
+.TP
+.B /Users/<user>/VMs/*.utm/
+Location of VM bundles and config files.
+.TP
+.B /tmp/<vmname>.monitor
+QEMU monitor socket.
+.TP
+.B /tmp/<vmname>.sock
+tmux socket file.
+
+.SH DEPENDENCIES
+Requires:
+.B doas,
+.B tmux,
+.B screen,
+.B qemu,
+.B socat
+
+.SH AUTHOR
+Sara Burke <krolingo@github>
+
+.SH SEE ALSO
+.B vmctl.sh(1),
+.B qemu(1),
+.B tmux(1),
+.B launchctl(1)

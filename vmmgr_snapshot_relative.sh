@@ -47,51 +47,33 @@ fi
 indent="  "
 TIMESTAMP=$(date)
 
-short_help() {
-  echo ""
-  echo "USAGE: vmmgr.sh <vmname> <subcommand>"
-  echo "Try 'vmmgr.sh --help' for more information."
-  echo ""
-  exit 1
-}
-
 show_help() {
-  echo ""
-  echo "OVERVIEW:"
-  echo "  CLI tool for managing QEMU VMs using .utm bundles on macOS."
-  echo "  Wraps QEMU, tmux, screen, and vmctl.sh into a simple VM lifecycle manager."
-  echo ""
-  echo "USAGE:"
-  echo "  vmmgr.sh <vmname> <subcommand>"
-  echo "  vmmgr.sh snapshot <vmname> <snapshot-subcommand> [label]"
-  echo ""
-  echo "OPTIONS:"
-  echo "  -h, --help                Show this help information."
-  echo ""
-  echo "SUBCOMMANDS:"
-  echo "  start                    Start VM in tmux+screen"
-  echo "  start-all                Start all configured VMs"
-  echo "  tmuxed                   Start VM and attach to its tmux session"
-  echo "  attach                   Attach to existing tmux session for VM"
-  echo "  stop                     Gracefully shut down a VM"
-  echo "  stop-all                 Stop all VMs"
-  echo "  restart                  Restart the VM (stop + start)"
-  echo "  status                   Show status of the VM"
-  echo "  status-all, all          Show status of all VMs"
-  echo "  list                     List available VMs"
-  echo "  snapshot                 Delegate to vmctl.sh for snapshots"
-  echo ""
-  echo "SNAPSHOT SUBCOMMANDS:"
-  echo "  list, save <label>, restore <label>, delete <label>"
-  echo ""
-  echo "EXAMPLES:"
+  echo "\nOVERVIEW: CLI tool for managing QEMU VMs using .utm bundles."
+  echo "\nUSAGE: vmmgr.sh <vmname> <subcommand>"
+  echo "\nOPTIONS:"
+  echo "  -h, --help              Show help information."
+  echo "\nSUBCOMMANDS:"
+  echo "  start                  Start VM in tmux+screen"
+  echo "  start-all              Start all VMs"
+  echo "  tmuxed                 Start then attach to VM tmux session"
+  echo "  attach                 Attach to an existing VM tmux session"
+  echo "  stop                   Gracefully shut down VM"
+  echo "  stop-all               Stop all running VMs"
+  echo "  restart                Stop then start"
+  echo "  status                 Show VM status"
+  echo "  list                   List available VMs"
+  echo "  status-all, all        Show status of all VMs"
+  echo "  snapshot               Delegate to vmctl.sh (list-disk, save-disk, restore-disk, delete-disk)"
+  echo "\nEXAMPLES:"
   echo "  vmmgr.sh alpinevm start"
   echo "  vmmgr.sh alpinevm tmuxed"
+  echo "  doas tmux attach -t alpinevm"
   echo "  vmmgr.sh alpinevm attach"
-  echo "  vmmgr.sh snapshot alpinevm save \"pre-upgrade\""
-  echo "  vmmgr.sh snapshot alpinevm restore \"pre-upgrade\""
-  echo ""
-  echo "AVAILABLE VMs:"
+    echo "\nSNAPSHOTS:"
+  echo "  vmmgr.sh snapshot alpinevm list-disk"
+  echo "  vmmgr.sh snapshot alpinevm save-disk \"pre-upgrade\""
+  echo "  vmmgr.sh snapshot alpinevm restore-disk \"pre-upgrade\""     
+  echo "\nAVAILABLE VMs"
   echo "================================"
   i=1
   for bundle in "$BASE_DIR"/*.utm; do
@@ -104,32 +86,12 @@ show_help() {
 
 }
 
-# Early help + man handler
-if [ "$1" = "--help" ] || [ "$1" = "-h" ] || [ "$1" = "help" ]; then
-  show_help
-  exit 0
-fi
-
-if [ "$1" = "man" ]; then
-  MANPAGE="$(dirname "$0")/vmmgr.1"
-  if [ -f "$MANPAGE" ]; then
-    man "$MANPAGE"
-    exit 0
-  else
-    echo "${RED}[ERROR]${RESET} vmmgr.1 not found at $MANPAGE"
-    exit 1
-  fi
-fi
-
-# If no arguments provided, show short help
-[ -z "$1" ] && short_help
 ##############################
 # Handle snapshot subcommand early (relative path)
 if [ "$1" = "snapshot" ]; then
   shift
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  #exec "$SCRIPT_DIR/../vmctl/vmctl.sh" "$@"
-  exec "$SCRIPT_DIR/vmctl.sh" "$@"
+  exec "$SCRIPT_DIR/../vmctl/vmctl.sh" "$@"
 fi
 ##############################
 
@@ -491,8 +453,6 @@ attach_tmux_only() {
   fi
 }
 
-
-
 # Dispatch
 case "$action" in
   start)          start_vm                ;;
@@ -506,7 +466,6 @@ case "$action" in
   launchd-start)  launchd_safe_start_vm   ;;
   tmuxed)         start_attach_vm         ;;
   attach)         attach_tmux_only        ;;
-  man)            show_man_page            ;;
   *)
     echo "Usage:"
     echo "  $0 <vmssss> {start|stop|restart|status|status-all|tmuxed|attach|list|all}"
