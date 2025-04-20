@@ -189,25 +189,24 @@ tmux kill-server
 tmux
 ```
 
-## 📦 Snapshot Support via `vmctl.sh` Integration
 
-`vmmgr.sh` now delegates snapshot operations to a companion script, `vmctl.sh`, located relative to the `vmmgr.sh` path at:
+## 🧊 Snapshot Support via `vmctl.sh`
 
-```sh
-../vmctl/vmctl.sh
-```
+`vmmgr.sh` now supports snapshot management by delegating to a companion script, [`vmctl.sh`](https://github.com/your-org/vmctl.sh), which handles offline and live QEMU snapshots for `.utm`-style VM bundles.
 
-This lets you manage snapshots directly through the same interface, using subcommands like:
-
-```
-vmmgr.sh snapshot <vmname> <subcommand> [args...]
-```
+This lets you use a unified CLI for both lifecycle control and snapshot creation, restoration, listing, and deletion.
 
 ---
 
-###  How it works
+### 📦 How It Works
 
-Inside `vmmgr.sh`, this block forwards `snapshot` commands:
+If you call `vmmgr.sh` with `snapshot` as the first argument, it forwards the remaining command-line arguments to `vmctl.sh`, which is expected to live in the sibling `../vmctl/vmctl.sh` path relative to `vmmgr.sh`.
+
+```sh
+vmmgr.sh snapshot <vmname> <snapshot-subcommand> [args...]
+```
+
+This is handled by this block near the top of the script:
 
 ```sh
 # Handle snapshot subcommand early (relative path)
@@ -218,43 +217,70 @@ if [ "$1" = "snapshot" ]; then
 fi
 ```
 
-The `shift` removes `snapshot`, so the rest of the args are passed to `vmctl.sh`.
+---
+
+### 🛠 Supported Snapshot Subcommands
+
+These subcommands are defined in `vmctl.sh` and can vary depending on your setup, but typically include:
+
+| Command         | Description                                |
+|----------------|--------------------------------------------|
+| `list`     | List available disk snapshots              |
+| `save`     | Create a new snapshot with a label         |
+| `restore`  | Restore a snapshot by label or timestamp   |
+| `delete`   | Delete a snapshot by label or ID           |
 
 ---
 
-###  Snapshot Subcommands
+### 🔁 Auto-Rotating `-auto` Snapshots
 
-| Command          | Description                                  |
-|------------------|----------------------------------------------|
-| `list`      | List all snapshots for a VM’s qcow2 disk     |
-| `save`      | Create a new snapshot with a given label     |
-| `restore`   | Restore a snapshot by label or ID            |
-| `delete`    | Delete a snapshot by label or ID             |
+When using automated snapshots (e.g. pre-reboot or hourly jobs), `vmmgr.sh` supports **automatic rotation** of snapshots ending in `-auto`. This prevents excessive accumulation of automated snapshots and saves disk space.
 
-You can alias these in your shell for convenience if desired.
+By default, the system will:
 
----
+- Keep the **latest 3** snapshots ending in `-auto`
+- Automatically **delete older `-auto` snapshots**
+- This logic is used in scripts like `vm_shutdown`, `delete_snapshots_range.sh`, or your own hooks
 
-### Examples
+#### Example:
 
-```sh
-# List all disk snapshots
-vmmgr.sh snapshot alpinevm list
-
-# Save a disk snapshot before updating
-vmmgr.sh snapshot alpinevm save "before-upgrade"
-
-# Restore snapshot after failure
-vmmgr.sh snapshot alpinevm restore "before-upgrade"
-
-# Delete an unused snapshot
-vmmgr.sh snapshot alpinevm delete "old-test-snap"
+```text
+[INFO] Rotating -auto snapshots (keep latest 3)...
+[INFO] Found 7 '-auto' snapshots. Deleting oldest 4...
+[AUTO] Deleting 20240414T0300-auto (index 12)
+[AUTO] Deleting 20240414T0200-auto (index 11)
+[AUTO] Deleting 20240414T0100-auto (index 10)
+[AUTO] Deleting 20240413T2300-auto (index 9)
+[DONE] Finished range deletion and auto-rotation.
 ```
 
+#### 💡 Best Practice
+
+Always use a label format like:
+
+```sh
+vmmgr.sh snapshot alpinevm save-disk "$(date +%Y%m%dT%H%M)-auto"
+```
+
+This ensures snapshots sort chronologically and makes auto-rotation predictable.
+
 ---
 
-###  Requirements
+### 📋 Examples
 
-- `vmctl.sh` must exist and be executable at `../vmctl/vmctl.sh`
-- It must support subcommands like `list-disk`, `save-disk`, etc.
-- Required tools: `qemu-img`, `jq`, `doas`, `socat`
+```sh
+# List snapshots for a VM
+vmmgr.sh snapshot alpinevm list
+
+# Save a snapshot before a risky change
+vmmgr.sh snapshot alpinevm save "pre-upgrade"
+
+# Automatically labeled snapshot for scheduled tasks
+vmmgr.sh snapshot alpinevm save "$(date +%Y%m%dT%H%M)-auto"
+
+# Restore a snapshot
+vmmgr.sh snapshot alpinevm restore "pre-upgrade"
+
+# Delete an old snapshot
+vmmgr.sh snapshot alpinevm delete "20240410T0300-auto"
+```
