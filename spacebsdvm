@@ -1,0 +1,167 @@
+#!/bin/sh
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+VM_NAME=spacebsdvm
+PLIST="/Library/LaunchDaemons/com.sara.$VM_NAME.plist"
+LAUNCHER="/Users/mcapella/bin/LauncherScripts/spacebsdvm-tmux.sh"
+MONITOR="/tmp/${VM_NAME}.monitor"
+LOGFILE="/tmp/${VM_NAME}.log"
+DOAS="/usr/local/bin/doas"
+SOCAT="/opt/homebrew/bin/socat"
+
+log_debug() {
+  echo "$1" >> "/tmp/${VM_NAME}.start.debug"
+}
+trap 'log_debug "⚠ Script exited with code $? while attempting $1"' EXIT
+
+kill_tmux() {
+  $DOAS tmux has-session -t "$VM_NAME" 2>/dev/null && $DOAS tmux kill-session -t "$VM_NAME"
+}
+
+is_launchd_loaded() {
+  launchctl list | grep -q "com.sara.$VM_NAME"
+}
+
+start() {
+  echo "Starting $VM_NAME..."
+  [ "$1" = "debug" ] && set -x
+  kill_tmux && echo "🧼 forcibly killing tmux session '$VM_NAME'..."
+
+  if is_launchd_loaded; then
+    echo "ℹ $VM_NAME already bootstrapped by launchctl."
+  elif [ -f "$PLIST" ]; then
+    $DOAS launchctl bootstrap system "$PLIST" || echo "Bootstrap failed"
+  else
+    if [ "$1" = "debug" ]; then
+      echo "🔍 Running $LAUNCHER in debug mode..."
+      exec $DOAS "$LAUNCHER"
+    else
+      $DOAS "$LAUNCHER" >/dev/null 2>&1 </dev/null &
+    fi
+  fi
+
+  for i in $(seq 1 20); do
+    log_debug "check $i"
+    if pgrep -f "qemu.*-name $VM_NAME" >/dev/null; then
+      { echo "✔ $VM_NAME started."; } 2>/dev/null
+      return 0
+    elif grep -q "QEMU started on" "$LOGFILE"; then
+      { echo "✔ $VM_NAME started. (TTY confirmed)"; } 2>/dev/null
+      return 0
+    elif $DOAS tmux has-session -t "$VM_NAME" 2>/dev/null; then
+      { echo "✔ $VM_NAME tmux session is alive. Assuming VM started."; } 2>/dev/null
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  echo "✗ Error: $VM_NAME failed to start."
+  echo "→ Check log: $LOGFILE"
+}
+
+stop() {
+  echo "Stopping $VM_NAME..."
+
+  if [ -S "$MONITOR" ]; then
+    echo "→ Sending ACPI shutdown via QEMU monitor..."
+    echo "system_powerdown" | $DOAS socat - UNIX-CONNECT:"$MONITOR"
+  else
+    echo "→ Monitor socket not found. Trying tmux fallback..."
+    $DOAS tmux send-keys -t spacebsdvm.0 "system_powerdown" C-m
+  fi
+
+  echo "→ Waiting for VM to power down..."
+  while pgrep -f "qemu.*$VM_NAME" > /dev/null; do
+    sleep 1
+  done
+  echo "✔ VM powered down."
+
+   echo "→ Unloading launchd daemon for $VM_NAME..."
+  if $DOAS launchctl list | grep -q "com.sara.${VM_NAME}"; then
+    $DOAS launchctl bootout system "$PLIST" && \
+      echo "✔ Launchd daemon unloaded." || \
+      echo "✗ Failed to unload launchd daemon."
+  else
+    echo "✓ Launchd daemon already unloaded."
+fi
+
+
+  echo "→ Saving disk snapshot for $VM_NAME after shutdown..."
+
+  # === Parse QEMU drive IDs from launcher ===
+  DISK_PATHS=""
+  DISK_IDS=""
+
+  while read -r line; do
+    case "$line" in
+      *-drive*file=*)
+        id=$(echo "$line" | sed -n "s/.*id=\([^, ]*\).*/\1/p")
+        file=$(echo "$line" | sed -n "s/.*file='\([^']*\)'.*/\1/p")
+        if [ -n "$id" ] && [ -n "$file" ]; then
+          DISK_PATHS="$DISK_PATHS\n$file"
+          DISK_IDS="$DISK_IDS\n$id"
+        fi
+        ;;
+    esac
+  done < "$LAUNCHER"
+
+  get_drive_id() {
+    file="$1"
+    i=1
+    echo "$DISK_PATHS" | while read -r path; do
+      [ "$path" = "$file" ] && echo "$DISK_IDS" | sed -n "${i}p" && return
+      i=$((i + 1))
+    done
+  }
+
+  keep=3
+
+  for qcow in /Users/mcapella/VMs/${VM_NAME}.utm/Data/*.qcow2; do
+    drive_id="$(get_drive_id "$qcow")"
+    [ -z "$drive_id" ] && drive_id="unknown"
+    SNAP_NAME="$(date +'%Y-%m-%dT%H-%M-%S')-auto"
+
+    if qemu-img snapshot -c "$SNAP_NAME" "$qcow"; then
+      echo "✔ Snapshot $SNAP_NAME created for [$drive_id] $(basename "$qcow")"
+    else
+      echo "✗ Failed to snapshot [$drive_id] $(basename "$qcow")"
+    fi
+
+    echo "→ Rotating old -auto snapshots for [$drive_id] $(basename "$qcow")..."
+    snaps=$(qemu-img snapshot -l "$qcow" | awk '$2 ~ /-auto$/ {print $2}')
+    count=$(echo "$snaps" | wc -l | tr -d ' ')
+
+    if [ "$count" -gt "$keep" ]; then
+      delete=$(echo "$snaps" | head -n $(($count - $keep)))
+      for snap in $delete; do
+        qemu-img snapshot -d "$snap" "$qcow" && \
+          echo "  ✂ Deleted snapshot $snap in [$drive_id] $(basename "$qcow")"
+      done
+    else
+      echo "→ Nothing to delete. Only $count auto snapshots exist."
+    fi
+  done
+}
+
+status() {
+  echo "Checking status for $VM_NAME..."
+  if pgrep -f "qemu.*-name $VM_NAME" >/dev/null; then
+    echo "$VM_NAME is running."
+    echo "QEMU processes:"
+    $DOAS pgrep -af "qemu.*-name $VM_NAME"
+  else
+    echo "$VM_NAME is not running."
+  fi
+}
+
+case "$1" in
+  start) start ;;
+  debug) start debug ;;
+  stop) stop ;;
+  restart) stop && sleep 2 && start ;;
+  status) status ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status|debug}"
+    exit 1
+    ;;
+esac

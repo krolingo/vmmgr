@@ -1,0 +1,154 @@
+#!/bin/sh
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+VM_NAME=alpinevm
+PLIST="/Library/LaunchDaemons/com.sara.$VM_NAME.plist"
+LAUNCHER="/Users/mcapella/bin/LauncherScripts/alpine-tmux.sh"
+MONITOR="/tmp/${VM_NAME}.monitor"
+LOGFILE="/tmp/${VM_NAME}.log"
+DOAS="/usr/local/bin/doas"
+SOCAT="/opt/homebrew/bin/socat"
+
+log_debug() {
+  echo "$1" >> "/tmp/${VM_NAME}.start.debug"
+}
+trap 'log_debug "⚠ Script exited with code $? while attempting $1"' EXIT
+
+kill_tmux() {
+  $DOAS tmux has-session -t "$VM_NAME" 2>/dev/null && $DOAS tmux kill-session -t "$VM_NAME"
+}
+
+is_launchd_loaded() {
+  launchctl list | grep -q "com.sara.$VM_NAME"
+}
+
+start() {
+  echo "Starting $VM_NAME..."
+  [ "$1" = "debug" ] && set -x
+  kill_tmux && echo "🧼 forcibly killing tmux session '$VM_NAME'..."
+
+  if is_launchd_loaded; then
+    echo "ℹ $VM_NAME already bootstrapped by launchctl."
+  elif [ -f "$PLIST" ]; then
+    $DOAS launchctl bootstrap system "$PLIST" || echo "Bootstrap failed"
+  else
+    if [ "$1" = "debug" ]; then
+      echo "🔍 Running $LAUNCHER in debug mode..."
+      exec $DOAS "$LAUNCHER"
+    else
+      $DOAS "$LAUNCHER" >/dev/null 2>&1 </dev/null &
+    fi
+  fi
+
+  for i in $(seq 1 20); do
+    log_debug "check $i"
+    if pgrep -f "qemu.*-name $VM_NAME" >/dev/null; then
+      { echo "✔ $VM_NAME started."; } 2>/dev/null
+      return 0
+    elif grep -q "QEMU started on" "$LOGFILE"; then
+      { echo "✔ $VM_NAME started. (TTY confirmed)"; } 2>/dev/null
+      return 0
+    elif $DOAS tmux has-session -t "$VM_NAME" 2>/dev/null; then
+      { echo "✔ $VM_NAME tmux session is alive. Assuming VM started."; } 2>/dev/null
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  echo "✗ Error: $VM_NAME failed to start."
+  echo "→ Check log: $LOGFILE"
+}
+
+stop() {
+  echo "Stopping $VM_NAME..."
+
+  if [ -S "$MONITOR" ]; then
+    echo "→ Sending ACPI shutdown via QEMU monitor..."
+    echo "system_powerdown" | $DOAS socat - UNIX-CONNECT:"$MONITOR"
+  else
+    echo "→ Monitor socket not found. Trying tmux fallback..."
+    $DOAS tmux send-keys -t alpinevm.0 "system_powerdown" C-m
+  fi
+
+  echo "→ Waiting for VM to power down..."
+  while pgrep -f "qemu.*$VM_NAME" > /dev/null; do
+    sleep 1
+  done
+  echo "✔ VM powered down."
+
+ echo "→ Unloading launchd daemon for $VM_NAME..."
+if $DOAS launchctl list | grep -q "com.sara.${VM_NAME}-vm"; then
+  $DOAS launchctl bootout system "/Users/mcapella/bin/LaunchDaemons/com.sara.${VM_NAME}-vm.plist" && \
+    echo "✔ Launchd daemon unloaded." || \
+    echo "✗ Failed to unload launchd daemon."
+else
+  echo "✓ Launchd daemon already unloaded."
+fi
+  echo "→ Saving disk snapshot for $VM_NAME after shutdown..."
+
+  # === Parse QEMU drive ID from alpine-tmux.sh ===
+  drive_id="unknown"
+  drive_path=""
+
+  while read -r line; do
+    case "$line" in
+      *-drive*file=*)
+        id=$(echo "$line" | sed -n "s/.*id=\([^, ]*\).*/\1/p")
+        file=$(echo "$line" | sed -n "s/.*file='\([^']*\)'.*/\1/p")
+        if [ -n "$id" ] && [ -n "$file" ]; then
+          drive_id="$id"
+          drive_path="$file"
+          break
+        fi
+        ;;
+    esac
+  done < "$LAUNCHER"
+
+  [ -z "$drive_path" ] && drive_path=$(find /Users/mcapella/VMs/${VM_NAME}.utm/Data -name '*.qcow2' | head -n1)
+
+  SNAP_NAME="$(date +'%Y-%m-%dT%H-%M-%S')-auto"
+  if qemu-img snapshot -c "$SNAP_NAME" "$drive_path"; then
+    echo "✔ Snapshot $SNAP_NAME created for [$drive_id] $(basename "$drive_path")"
+  else
+    echo "✗ Failed to snapshot [$drive_id] $(basename "$drive_path")"
+  fi
+
+    echo "→ Rotating old -auto snapshots for [$drive_id] $(basename "$drive_path")..."
+  keep=3
+
+snaps=$(qemu-img snapshot -l "$drive_path" | awk '$2 ~ /-auto$/ {print $2}')
+  count=$(echo "$snaps" | wc -l | tr -d ' ')
+
+  if [ "$count" -gt "$keep" ]; then
+    delete=$(echo "$snaps" | head -n $(($count - $keep)))
+    for snap in $delete; do
+      qemu-img snapshot -d "$snap" "$drive_path" && \
+        echo "  ✂ Deleted snapshot $snap in [$drive_id] $(basename "$drive_path")"
+    done
+  else
+    echo "→ Nothing to delete. Only $count auto snapshots exist."
+  fi
+}
+
+status() {
+  echo "Checking status for $VM_NAME..."
+  if pgrep -f "qemu.*-name $VM_NAME" >/dev/null; then
+    echo "$VM_NAME is running."
+    echo "QEMU processes:"
+    $DOAS pgrep -af "qemu.*-name $VM_NAME"
+  else
+    echo "$VM_NAME is not running."
+  fi
+}
+
+case "$1" in
+  start) start ;;
+  debug) start debug ;;
+  stop) stop ;;
+  restart) stop && sleep 2 && start ;;
+  status) status ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status|debug}"
+    exit 1
+    ;;
+esac

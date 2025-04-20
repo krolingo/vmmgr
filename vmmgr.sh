@@ -30,18 +30,17 @@ DOAS="/usr/local/bin/doas"
 TMUX="/opt/homebrew/bin/tmux"
 
 # Detect TTY for colors
-if [ -t 1 ]; then
-  YELLOW="\033[33m"
-  RED="\033[31m"
+if [ -t 1 ] || [ "${FORCE_COLOR:-0}" = "1" ]; then
   GREEN="\033[32m"
+  RED="\033[31m"
+  YELLOW="\033[33m"
   BLUE="\033[34m"
-  MAGENTA="\033[35m"
   CYAN="\033[36m"
   WHITE="\033[37m"
   BOLD_RED="\033[1;31m"
   RESET="\033[0m"
 else
-  YELLOW= RED= GREEN= BLUE= MAGENTA= CYAN= WHITE= BOLD_RED= RESET=
+  GREEN= RED= YELLOW= BLUE= CYAN= WHITE= BOLD_RED= RESET=
 fi
 
 # 2-space indent helper
@@ -196,22 +195,22 @@ start_vm() {
 
   # 1) Try launchd bootstrap
   if $DOAS launchctl bootstrap system "$LAUNCHD_PLIST" 2>/dev/null; then
-    echo "${GREEN}[OK]${RESET} Launched $VM_NAME via launchd."
-    echo "${GREEN}[OK]${RESET} QEMU running under launchd (tmux session $SESSION)"
-    echo "${CYAN}[INFO]${RESET} Attach with: $DOAS $TMUX attach -t $SESSION"
+    echo "${indent}${GREEN}[OK]${RESET} Launched ${WHITE}$VM_NAME${RESET} via launchd."
+    echo "${indent}${GREEN}[OK]${RESET} QEMU running under launchd (tmux session $SESSION)"
+    echo "${indent}${CYAN}[INFO]${RESET} Attach with: $DOAS $TMUX attach -t $SESSION"
     return 0
   else
-    echo "${YELLOW}[WARNING]${RESET} launchd bootstrap failed or already loaded—falling back to manual start."
+    echo "${indent}${YELLOW}[WARNING]${RESET} launchd bootstrap failed or already loaded—falling back to manual start."
   fi
 
   # 2) Manual fallback
   if is_running; then
-    echo "${GREEN}[OK]${RESET} $VM_NAME already running. Skipping start."
+    echo "${indent}${GREEN}[OK]${RESET} ${WHITE}$VM_NAME${RESET} already running. Skipping start."
     return 0
   fi
 
   [ -S "$MONITOR" ] && $DOAS rm -f "$MONITOR"
-  echo "${BLUE}[INFO]${RESET} Manually starting $VM_NAME..."
+  echo "${indent}${BLUE}[INFO]${RESET} Manually starting ${WHITE}$VM_NAME${RESET}..."
 
   LOGFILE="/tmp/${SESSION}.out"
   TTY_LOG="/tmp/qemu-${SESSION}-pty.log"
@@ -232,8 +231,8 @@ start_vm() {
   done
 
   if [ -z "$TTY_PATH" ]; then
-    echo "${YELLOW}[WARNING]${RESET} No PTY detected—headless VM assumed."
-    echo "${CYAN}[INFO]${RESET} QEMU is running in background. Use 'status' to verify."
+    echo "${indent}${YELLOW}[WARNING]${RESET} No PTY detected—headless VM assumed."
+    echo "${indent}${CYAN}[INFO]${RESET} QEMU is running in background. Use 'status' to verify."
     return 0
   fi
 
@@ -251,8 +250,8 @@ exec screen $TTY_PATH" | $DOAS tee "$TTY_WRAPPER" >/dev/null
   $DOAS $TMUX new-session -d -s "$SESSION" "$TTY_WRAPPER"
   $DOAS $TMUX pipe-pane -t "$SESSION" -o "cat > /tmp/${SESSION}_tmux.log"
 
-  echo "${GREEN}[OK]${RESET} QEMU running on $TTY_PATH"
-  echo "${CYAN}[INFO]${RESET} Attach with: $DOAS $TMUX attach -t $SESSION"
+  echo "${indent}${GREEN}[OK]${RESET} QEMU running on ${WHITE}$TTY_PATH${RESET}"
+  echo "${indent}${CYAN}[INFO]${RESET} Attach with: $DOAS $TMUX attach -t $SESSION"
 }
 
 launchd_safe_start_vm() {
@@ -309,19 +308,25 @@ start_all() {
   echo ""
   echo "${indent}${CYAN}========================${RESET}"
   echo "${indent}Starting all VMs..."
-  echo "${indent}${CYAN}========================${RESET}\n"
+  echo "${indent}${CYAN}========================${RESET}"
+  echo ""
 
   for bundle in "$BASE_DIR"/*.utm; do
     [ -d "$bundle" ] || continue
     vm=$(basename "$bundle" .utm)
     conf="$bundle/vm.conf"
-    [ ! -f "$conf" ] && echo "${indent}${YELLOW}[WARNING]${RESET} $vm — missing vm.conf, skipping." && continue
+
+    if [ ! -f "$conf" ]; then
+      echo "${indent}${YELLOW}[WARNING]${RESET} $vm — missing vm.conf, skipping."
+      continue
+    fi
+
     SESSION="$vm"
     if $DOAS $TMUX has-session -t "$SESSION" 2>/dev/null; then
       echo "${indent}${GREEN}[OK]${RESET} $vm already running. Skipping."
     else
-      echo "${indent}-> Starting $vm..."
-      "$0" "$vm" start || echo "${indent}${RED}[ERROR]${RESET} Failed to start $vm"
+      echo "${indent}-> Starting ${WHITE}$vm${RESET}..."
+      FORCE_COLOR=1 "$0" "$vm" start 2>&1 | sed "s/^/${indent}/"
     fi
   done
 
@@ -330,7 +335,7 @@ start_all() {
 
 stop_vm() {
   load_conf
-  echo "${BLUE}[INFO]${RESET} Stopping $VM_NAME..."
+  echo "${indent}${BLUE}[INFO]${RESET} Stopping ${WHITE}$VM_NAME${RESET}..."
 
   for i in $(seq 1 10); do
     [ -S "$MONITOR" ] && break
@@ -338,37 +343,70 @@ stop_vm() {
   done
 
   if [ -S "$MONITOR" ]; then
-    echo "${BLUE}[INFO]${RESET} Sending ACPI shutdown via QEMU monitor..."
-    echo "system_powerdown" | $DOAS socat - UNIX-CONNECT:"$MONITOR"
+    echo "${indent}${BLUE}[INFO]${RESET} Sending ACPI shutdown via QEMU monitor..."
+    echo "system_powerdown" | $DOAS socat - UNIX-CONNECT:"$MONITOR" 2>&1 | while IFS= read -r line; do
+      echo "${indent}${line}"
+    done
   else
-    echo "${YELLOW}[WARNING]${RESET} Monitor socket not available. Fallback to tmux signal..."
-    $DOAS $TMUX send-keys -t "$SESSION" "poweroff" C-m
+    echo "${indent}${YELLOW}[WARNING]${RESET} Monitor socket not available. Fallback to tmux signal..."
+    $DOAS $TMUX send-keys -t "$SESSION" "poweroff" C-m 2>&1 | while IFS= read -r line; do
+      echo "${indent}${line}"
+    done
   fi
 
-  echo "${BLUE}[INFO]${RESET} Waiting for VM to power down..."
+  echo "${indent}${BLUE}[INFO]${RESET} Waiting for VM to power down..."
   while pgrep -f "qemu.*$VM_NAME" >/dev/null; do
     sleep 1
   done
 
-  echo "${GREEN}[OK]${RESET} VM powered down."
-  [ -e "$MONITOR" ] && echo "${GREEN}[OK]${RESET} Monitor socket was cleaned up"
+  echo "${indent}${GREEN}[OK]${RESET} VM powered down."
+  [ -e "$MONITOR" ] && echo "${indent}${GREEN}[OK]${RESET} Monitor socket was cleaned up"
 
   LAUNCHD_PLIST="/Library/LaunchDaemons/com.sara.${VM_NAME}.plist"
-  [ -f "$LAUNCHD_PLIST" ] && \
+  if [ -f "$LAUNCHD_PLIST" ]; then
     $DOAS launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null && \
-    echo "${GREEN}[OK]${RESET} launchd service unloaded."
+      echo "${indent}${GREEN}[OK]${RESET} launchd service unloaded."
+  fi
 
-  # Clean up tmux session & wrap scripts
   $DOAS $TMUX has-session -t "$SESSION" 2>/dev/null && $DOAS $TMUX kill-session -t "$SESSION"
   $DOAS rm -f "/tmp/${SESSION}-qemu-wrap.sh" "/tmp/${SESSION}.sock" "/tmp/${SESSION}_tmux_error.log"
+
+  echo "${indent}${BLUE}[INFO]${RESET} Saving disk snapshot and rotating old ones..."
+
+  SNAP_NAME="$(date +'%Y-%m-%dT%H-%M-%S')-auto"
+
+  for qcow in "$bundle"/Data/*.qcow2; do
+    [ -f "$qcow" ] || continue
+
+    if qemu-img snapshot -c "$SNAP_NAME" "$qcow"; then
+      echo "${indent}${GREEN}[OK]${RESET} Created snapshot ${WHITE}$SNAP_NAME${RESET} on $(basename "$qcow")"
+    else
+      echo "${indent}${RED}[ERROR]${RESET} Failed to create snapshot on $(basename "$qcow")"
+      continue
+    fi
+
+    keep=3
+    snaps=$(qemu-img snapshot -l "$qcow" | awk '$2 ~ /-auto$/ {print $2}')
+    count=$(echo "$snaps" | wc -l | tr -d ' ')
+
+    if [ "$count" -gt "$keep" ]; then
+      delete=$(echo "$snaps" | head -n $(($count - $keep)))
+      for snap in $delete; do
+        qemu-img snapshot -d "$snap" "$qcow" && \
+          echo "${indent}${YELLOW}[DEL]${RESET} Removed old snapshot ${WHITE}$snap${RESET} from $(basename "$qcow")"
+      done
+    else
+      echo "${indent}${CYAN}[INFO]${RESET} Only $count auto snapshots exist on $(basename "$qcow"); nothing to delete."
+    fi
+  done
 }
 
 stop_all() {
-  echo ""
-  echo "========================"
-  echo "Shutting down all VMs..."
-  echo "========================"
-
+echo ""
+  echo "${indent}${CYAN}========================${RESET}"
+  echo "${indent}Shutting down all VMs..."
+  echo "${indent}${CYAN}========================${RESET}"
+  
   for bundle in "$BASE_DIR"/*.utm; do
     [ -d "$bundle" ] || continue
     vm=$(basename "$bundle" .utm)
@@ -381,23 +419,24 @@ status_vm() {
   load_conf
   echo ""
   echo "${indent}${CYAN}========================${RESET}"
-  echo "${indent}Status for VM: $VM_NAME"
+  echo "${indent}Status for VM: ${WHITE}$VM_NAME${RESET}"
   echo "${indent}${CYAN}========================${RESET}"
   echo ""
 
   LAUNCHD_LABEL="com.sara.${VM_NAME}"
+
   if $DOAS $TMUX has-session -t "$SESSION" 2>/dev/null; then
-    echo "${indent}${GREEN}[RUNNING]${RESET} $VM_NAME (tmux)"
+    echo "${indent}${indent}${GREEN}[RUNNING]${RESET} ${WHITE}$VM_NAME${RESET} (tmux)"
   elif [ -f "/tmp/${SESSION}.qemu.pid" ] && ps -p "$(cat /tmp/${SESSION}.qemu.pid)" >/dev/null 2>&1; then
-    echo "${indent}${GREEN}[RUNNING]${RESET} $VM_NAME (headless)"
+    echo "${indent}${indent}${GREEN}[RUNNING]${RESET} ${WHITE}$VM_NAME${RESET} (headless)"
   else
-    echo "${indent}${RED}[STOPPED]${RESET} $VM_NAME"
+    echo "${indent}${indent}${RED}[STOPPED]${RESET} ${WHITE}$VM_NAME${RESET}"
   fi
 
   if $DOAS launchctl list | grep -q "$LAUNCHD_LABEL"; then
-    echo "${indent}${CYAN}[INFO]${RESET}    └── LaunchDaemon $LAUNCHD_LABEL is loaded."
+    echo "${indent}${indent}${CYAN}[INFO]${RESET}      └── LaunchDaemon ${WHITE}$LAUNCHD_LABEL${RESET} is loaded."
   else
-    echo "${indent}${YELLOW}[WARNING]${RESET} └── LaunchDaemon $LAUNCHD_LABEL is NOT loaded."
+    echo "${indent}${indent}${YELLOW}[WARNING]${RESET}   └── LaunchDaemon ${WHITE}$LAUNCHD_LABEL${RESET} is NOT loaded."
   fi
 
   echo ""

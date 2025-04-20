@@ -135,11 +135,14 @@ save_disk_snapshot() {
   TS=$(date +%Y-%m-%dT%H-%M-%S)
   NAME="${TS}-${ARG:-auto}"
   SNAPSHOTS=[]
+
   for img in "$VM_BUNDLE"/Data/*.qcow2; do
     qemu-img snapshot -c "$NAME" "$img"
     SNAPSHOTS=$(echo "$SNAPSHOTS" | jq --arg f "$img" '. + [$f]')
+    echo "${indent}${GREEN}[OK]${RESET} Created snapshot ${WHITE}$NAME${RESET} on $(basename "$img")"
   done
-  echo "${GREEN}[OK]${RESET} Disk snapshot '$NAME' created for all disks."
+
+  echo "${indent}${GREEN}[OK]${RESET} Snapshot ${WHITE}$NAME${RESET} created for all disks."
   echo "{ \"snapshot\": \"$NAME\", \"time\": \"$TS\", \"disks\": $SNAPSHOTS }" >> "$META_FILE"
 }
 
@@ -163,18 +166,17 @@ list_disk_snapshots() {
     fi
 
     echo ""
-    echo "${BLUE}📦${RESET}   Disk: $(basename "$img") [ID: $id]"
-    printf "\n"
-    printf "%-4s %-45s %-40s\n" "ID" "TAG" "DATE"
-    echo "-----------------------------------------------------------------------"
-    qemu-img snapshot -l "$img" | tail -n +3 | awk -F '[[:space:]]+' '
+    echo "${indent}${CYAN}📦${RESET}   Disk: $(basename "$img") [ID: $id]"
+    echo ""
+    printf "${indent}%-4s %-45s %-40s\n" "ID" "TAG" "DATE"
+    echo "${indent}-----------------------------------------------------------------------"
+    qemu-img snapshot -l "$img" | tail -n +3 | awk -F '[[:space:]]+' -v pad="$indent" '
       {
         id = $1
         tag = $2
         date = $5 " " $6
-        printf "%-4s %-45s %-40s\n", id, tag, date
+        printf "%s%-4s %-45s %-40s\n", pad, id, tag, date
       }'
- #   echo "-----------------------------------------------------------------------"
   done
 }
 
@@ -182,17 +184,18 @@ restore_disk_snapshot() {
   [ -n "$ARG" ] || { echo "${RED}[ERROR]${RESET} Usage: $0 $VM_NAME restore-disk <name>"; exit 1; }
   for img in "$VM_BUNDLE"/Data/*.qcow2; do
     qemu-img snapshot -a "$ARG" "$img"
+    echo "${indent}${GREEN}[OK]${RESET} Restored snapshot ${WHITE}$ARG${RESET} on $(basename "$img")"
   done
-  echo "${GREEN}[OK]${RESET} All disks reverted to snapshot '$ARG'."
 }
 
 delete_disk_snapshot() {
   [ -n "$ARG" ] || { echo "${RED}[ERROR]${RESET} Usage: $0 $VM_NAME delete-disk <label>"; exit 1; }
   for img in "$VM_BUNDLE"/Data/*.qcow2; do
-    echo "${BLUE}[INFO]${RESET} Deleting snapshot '$ARG' from $(basename "$img")..."
-    qemu-img snapshot -d "$ARG" "$img" || echo "${YELLOW}[WARNING]${RESET} Failed to delete from $img"
+    echo "${indent}${BLUE}[INFO]${RESET} Deleting snapshot ${WHITE}$ARG${RESET} from $(basename "$img")..."
+    qemu-img snapshot -d "$ARG" "$img" && \
+      echo "${indent}${GREEN}[OK]${RESET} Deleted snapshot ${WHITE}$ARG${RESET} from $(basename "$img")" || \
+      echo "${indent}${YELLOW}[WARN]${RESET} Failed to delete snapshot ${WHITE}$ARG${RESET} from $img"
   done
-  echo "${GREEN}[OK]${RESET} Deleted snapshot '$ARG' from all disks."
 }
 
 case "$COMMAND" in
